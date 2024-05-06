@@ -16,13 +16,13 @@ class VerifyEmailController extends Controller
         $user = User::find($request->route('id'));
 
         if ($user->hasVerifiedEmail()) {
-            return redirect('https://apeinsight.com/verified');
+            return redirect('https://terminal.x1.capital/verified');
         }
 
         if ($user->markEmailAsVerified()) {
             event(new Verified($user));
         }
 
-        return redirect('https://apeinsight.com/verified');
+        return redirect('https://terminal.x1.capital/verified');
     }
 }

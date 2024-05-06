@@ -25,7 +25,7 @@ class AppServiceProvider extends ServiceProvider
     {
         //
         ResetPassword::createUrlUsing(function ($notifiable, $token) {
-          return "https://apeinsight.com/password-reset?token={$token}";
+          return "https://terminal.x1.capital/password-reset?token={$token}";
         });
     }
 }

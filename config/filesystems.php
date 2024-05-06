@@ -69,4 +69,13 @@ return [
         public_path('storage') => storage_path('app/public'),
     ],
 
+    'do_spaces' => [
+        'driver' => 's3',
+        'key' => 'DO00BTXRKZ2DAKVLGXEU',
+        'secret' => 'ptOUbkiv1miRP+zJ8XEWHDiYSyn/Fwu2qgK1LKmnn9I',
+        'endpoint' => 'https://terminal-1.nyc3.digitaloceanspaces.com',
+        'region' => 'us-west-2',
+        'bucket' => 'terminal',
+    ],
+
 ];

@@ -12,6 +12,9 @@ use Carbon\Carbon;
 use Codenixsv\CoinGeckoApi\CoinGeckoClient;
 use Illuminate\Support\Str;
 
+use Aws\S3\S3Client;
+use Aws\Exception\AwsException;
+
 class CoinController extends Controller
 {
     public function getBinanceCoinIds(){
@@ -27,15 +30,16 @@ class CoinController extends Controller
 
       return response()->json([
         'data' => $ids,
-      ]);  
+      ]);
     }
+
     public function getFromCoingecko(Request $request){
       $client = new CoinGeckoClient();
       $coin = AllCoin::where('id', $request->id)->first();
 
       try{
         $result = $client->coins()->getCoin($coin->coin_id);
-        
+
         $new = new Coin();
         $new->name=$result['name'];
         $new->symbol = Str::upper($result['symbol']);
@@ -51,11 +55,11 @@ class CoinController extends Controller
         $new->website = $result['links']['homepage'][0];
         $new->fetch_date = Carbon::now();
         $new->save();
-        
+
         $re = Coin::where('id', $new->id)->first();
         return response()->json([
           'data' => $re,
-        ]);  
+        ]);
       }catch(\Exception $e)
       {
         return response()->json($e, 422);
@@ -82,7 +86,7 @@ class CoinController extends Controller
 
         return response()->json([
           'data' => $coin,
-        ]);  
+        ]);
       } catch(Exception $e){
         return response()->json($e, 422);
       }
@@ -94,7 +98,7 @@ class CoinController extends Controller
 
         return response()->json([
           'message' => 'success',
-        ]);  
+        ]);
       } catch(Exception $e){
         return response()->json($e, 422);
       }
@@ -115,11 +119,40 @@ class CoinController extends Controller
         $name = md5(rand(1,100) . time()).'.' . explode('/', explode(':', substr($image, 0, strpos($image, ';')))[1])[1];
         \Image::make($request->get('image'))->save(public_path('imgs/').$name);
 
+
+        $bucket = 'terminal-1';
+        $key = $name; // the name you want to give your file in the space
+        $source = public_path('imgs/').$name;
+
+
+          // Create a S3Client
+          $s3 = new S3Client([
+              'version' => 'latest',
+              'region'  => 'nyc3', // Set your region
+              'endpoint' => 'https://terminal-1.nyc3.digitaloceanspaces.com',
+              'credentials' => [
+                  'key'    => 'DO00BTXRKZ2DAKVLGXEU',
+                  'secret' => 'ptOUbkiv1miRP+zJ8XEWHDiYSyn/Fwu2qgK1LKmnn9I',
+              ],
+          ]);
+
+        try {
+          $result = $s3->putObject([
+              'Bucket' => 'terminal-1',
+              'Key'    => 'DO00BTXRKZ2DAKVLGXEU',
+              'Body'   => fopen($source, 'r'),
+              'ACL'    => 'public-read' // or another ACL option
+          ]);
+          echo "File uploaded successfully. File URL: {$result['ObjectURL']}\n";
+        } catch (AwsException $e) {
+          echo "Error uploading file: {$e->getMessage()}\n";
+        }
+
         $coin = new Coin();
         $coin->name = $request->name;
         $coin->symbol = $request->symbol;
         $coin->presale = $request->presale;
-        // $coin->network = $request->network;
+        $coin->network = $request->network;
         $coin->launch_date = $request->launchDate;
         $coin->contract = $request->contract;
         $coin->description = $request->description;
@@ -127,8 +160,9 @@ class CoinController extends Controller
         $coin->telegram = $request->telegram;
         $coin->twitter = $request->twitter;
         $coin->discord = $request->discord;
-        $coin->logo = env('APP_URL').'/imgs/'.$name;
-        
+        $coin->logo = $name;
+
+        /*
         try{
           $client = new CoinGeckoClient();
           $id = AllCoin::where('contract', $coin->contract)->first();
@@ -138,11 +172,16 @@ class CoinController extends Controller
           else{
             $result = $client->coins()->getCoin(str_replace(' ', '-', Str::lower($coin->name)));
           }
+
           $coin->marketcap = $result['market_data']['market_cap']['usd'];
           $coin->price_usd = $result['market_data']['current_price']['usd'];
         } catch(Exception $e){
         }
-        
+        */
+
+        $coin->marketcap = null;
+        $coin->price_usd = null;
+
         $coin->save();
 
       } catch(Exception $e){
@@ -207,7 +246,7 @@ class CoinController extends Controller
         // return response()->json([
         //   'success'=>true, 'data' => $result,
         // ]);
-        
+
           if($request->coin_id == null)
             return response()->json([
               'success'=>false, 'message' => 'You can not vote now. Only can vote once a day.',
@@ -225,7 +264,7 @@ class CoinController extends Controller
           $upvote->user_id = auth()->user()->id;
           $upvote->coin_id = $request->coin_id;
           $upvote->save();
-          
+
           $coin = Coin::where('id', $request->coin_id)->first();
           $coin->total_votes = $coin->total_votes + 1;
 
@@ -247,7 +286,7 @@ class CoinController extends Controller
 
         $coin->today_votes = Vote::where('coin_id', $coin->id)
                 ->where("created_at",">",Carbon::now()->subDay())->where("created_at","<",Carbon::now())->count();
-        
+
         if(auth()->user())
         {
           $count = Favourite::where('coin_id', $coin->id)->where('user_id', auth()->user()->id)->count();
@@ -292,7 +331,7 @@ class CoinController extends Controller
             {
               $recentCount = Vote::where('coin_id', $coin->id)
                 ->where("created_at",">",Carbon::now()->subDay())->where("created_at","<",Carbon::now())->count();
-              
+
               if($recentCount > 4)
               {
                 array_push($coins, $coin);
@@ -305,7 +344,7 @@ class CoinController extends Controller
             {
               $recentCount = Vote::where('coin_id', $coin->id)
                 ->where("created_at",">",Carbon::now()->subWeek())->where("created_at","<",Carbon::now())->count();
-              
+
               if($recentCount > 4)
               {
                 array_push($coins, $coin);
@@ -320,7 +359,7 @@ class CoinController extends Controller
           {
             $recentCount = Vote::where('coin_id', $coin->id)
               ->where("created_at",">",Carbon::now()->subDay()->subDay())->where("created_at","<",Carbon::now())->count();
-            $coin->recentCount = $recentCount;            
+            $coin->recentCount = $recentCount;
           }
           $coins = $base->unique()->sortByDesc('recentCount')->values()->all();
           $coins = array_slice($coins, 0, 25);
